@@ -3,16 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Порівняння текстів (Full Screen)</title>
+    <title>Text Diff Pro (Export & Clean)</title>
     
+    <!-- Бібліотека CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/diff2html/bundles/css/diff2html.min.css">
+    
     <style>
-        /* Максимальне використання простору */
+        :root {
+            --primary-color: #0969da;
+            --success-color: #1f883d;
+            --danger-color: #cf222e;
+            --bg-color: #f6f8fa;
+        }
+
         body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; 
             margin: 0; 
             padding: 10px; 
-            background: #f0f2f5; 
+            background: var(--bg-color); 
             height: 100vh;
             display: flex;
             flex-direction: column;
@@ -31,12 +39,18 @@
             box-sizing: border-box;
         }
 
-        h2 { margin: 0 0 10px 0; font-size: 1.2rem; color: #333; text-align: center; }
+        /* Панель керування */
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
 
         .inputs { 
             display: flex; 
-            gap: 10px; 
-            height: 30vh; /* Поля вводу займають 30% висоти */
+            gap: 15px; 
+            height: 30vh;
             min-height: 150px;
             margin-bottom: 10px; 
         }
@@ -45,83 +59,104 @@
             flex: 1; 
             display: flex; 
             flex-direction: column; 
+            position: relative;
         }
 
-        label { margin-bottom: 5px; font-weight: bold; font-size: 0.9rem; color: #555; }
+        .label-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        label { font-weight: bold; font-size: 0.9rem; color: #555; }
 
         textarea { 
             flex: 1; 
             padding: 10px; 
-            border: 1px solid #ccc; 
-            border-radius: 4px; 
-            font-family: 'Courier New', Courier, monospace;
+            border: 1px solid #d0d7de; 
+            border-radius: 6px; 
+            font-family: ui-monospace, SFMono-Regular, monospace;
+            font-size: 13px;
+            resize: none;
+        }
+
+        /* Кнопки */
+        button {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: 1px solid rgba(27, 31, 36, 0.15);
+            cursor: pointer;
+            font-weight: 600;
             font-size: 14px;
-            resize: none; /* Вимикаємо ручне розтягування, бо ми на флексі */
+            transition: 0.2s;
         }
 
-        button { 
-            padding: 10px; 
-            background: #2da44e; 
-            color: white; 
-            border: none; 
-            border-radius: 4px; 
-            cursor: pointer; 
-            font-size: 16px; 
-            font-weight: bold;
-            margin-bottom: 15px;
-            flex-shrink: 0;
+        .btn-primary { background: var(--success-color); color: white; }
+        .btn-primary:hover { background: #1a7f37; }
+
+        .btn-outline { background: #fff; color: var(--primary-color); border-color: var(--primary-color); }
+        .btn-outline:hover { background: #f3f4f6; }
+
+        .btn-danger { background: #fff; color: var(--danger-color); border-color: var(--danger-color); }
+        .btn-danger:hover { background: #ffebe9; }
+
+        .btn-clear-small {
+            padding: 2px 8px;
+            font-size: 11px;
+            color: #6e7781;
         }
 
-        button:hover { background: #2c974b; }
-
-        /* Область результату займає все місце, що залишилося */
+        /* Результат */
         #diff-output { 
             flex: 1; 
             overflow-y: auto; 
-            border: 1px solid #eee;
+            border: 1px solid #d0d7de;
+            border-radius: 6px;
         }
 
-        /* МАГІЯ ДЛЯ ПЕРЕНОСУ РЯДКІВ (CSS Overrides) */
+        /* ПЕРЕНОС РЯДКІВ (Магія для CSS) */
         .d2h-code-line-ctn {
-            white-space: pre-wrap !important; /* Перенос довгих рядків */
-            word-break: break-all !important;  /* Розрив довгих слів якщо треба */
+            white-space: pre-wrap !important;
+            word-break: break-all !important;
             padding-left: 10px !important;
         }
+        .d2h-code-side-line { display: block !important; }
+        .d2h-file-side-diff { overflow-x: hidden !important; }
 
-        .d2h-code-side-line {
-            display: block !important; /* Фікс для коректного відображення переносу */
+        @media (max-width: 768px) {
+            .inputs { flex-direction: column; height: auto; }
+            textarea { height: 120px; }
         }
-
-        /* Прибираємо горизонтальну прокрутку в колонках */
-        .d2h-file-side-diff {
-            overflow-x: hidden !important;
-        }
-
-        /* Стилізація скролбару для сучасного вигляду */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #f1f1f1; }
-        ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #999; }
-
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Порівняння текстів</h2>
+    <div class="toolbar">
+        <button class="btn-primary" onclick="performDiff()">Порівняти</button>
+        <button class="btn-outline" onclick="exportToHTML()">Експортувати в HTML</button>
+        <button class="btn-danger" onclick="clearAll()">Очистити все</button>
+    </div>
     
     <div class="inputs">
         <div class="input-group">
-            <label>Оригінал (Текст А):</label>
-            <textarea id="text1" placeholder="Вставте старий текст...">Це дуже довгий рядок тексту, який раніше створював горизонтальну прокрутку, але тепер він має автоматично переноситися на наступний рядок, щоб користувачу було зручно читати без зайвих рухів мишкою вбік.</textarea>
+            <div class="label-row">
+                <label>Оригінал (Текст А)</label>
+                <button class="btn-clear-small" onclick="clearText('text1')">Очистити</button>
+            </div>
+            <textarea id="text1" placeholder="Вставте текст тут...">Слава Україні!
+Це приклад довгого рядка, який тепер буде автоматично переноситися на новий рядок без появи горизонтальної прокрутки.</textarea>
         </div>
         <div class="input-group">
-            <label>Змінено (Текст Б):</label>
-            <textarea id="text2" placeholder="Вставте новий текст...">Це дуже довгий рядок тексту, який раніше створював горизонтальну прокрутку, але зараз він БУДЕ автоматично переноситися на наступний рядок, щоб кожному користувачу було супер зручно читати все одразу!</textarea>
+            <div class="label-row">
+                <label>Змінено (Текст Б)</label>
+                <button class="btn-clear-small" onclick="clearText('text2')">Очистити</button>
+            </div>
+            <textarea id="text2" placeholder="Вставте змінений текст...">Героям Слава!
+Це приклад довгого рядка, який ТЕПЕР буде автоматично переноситися на новий рядок без появи будь-якої прокрутки.</textarea>
         </div>
     </div>
-
-    <button id="compareBtn">Порівняти</button>
 
     <div id="diff-output"></div>
 </div>
@@ -130,8 +165,6 @@
 <script src="https://cdn.jsdelivr.net/npm/diff2html@3.4.48/bundles/js/diff2html.min.js"></script>
 
 <script>
-    const compareBtn = document.getElementById('compareBtn');
-    
     function performDiff() {
         const text1 = document.getElementById('text1').value;
         const text2 = document.getElementById('text2').value;
@@ -140,20 +173,64 @@
         if (typeof Diff === 'undefined' || typeof Diff2Html === 'undefined') return;
 
         const patch = Diff.createTwoFilesPatch('Оригінал', 'Змінено', text1, text2);
-        
         const diffHtml = Diff2Html.html(patch, {
             drawFileList: false,
             matching: 'lines',
-            outputFormat: 'side-by-side',
-            renderNothingWhenEmpty: false
+            outputFormat: 'side-by-side'
         });
 
-        outputElement.innerHTML = diffHtml;
+        outputElement.innerHTML = diffHtml || '<div style="padding:20px; text-align:center; color:#666;">Тексти ідентичні</div>';
     }
 
-    compareBtn.addEventListener('click', performDiff);
+    function clearText(id) {
+        document.getElementById(id).value = '';
+        performDiff();
+    }
 
-    // Автоматичне порівняння при завантаженні
+    function clearAll() {
+        document.getElementById('text1').value = '';
+        document.getElementById('text2').value = '';
+        document.getElementById('diff-output').innerHTML = '';
+    }
+
+    function exportToHTML() {
+        const diffContent = document.getElementById('diff-output').innerHTML;
+        if (!diffContent || diffContent.includes('ідентичні')) {
+            alert('Немає результату для експорту!');
+            return;
+        }
+
+        // Створюємо повний HTML-документ для експорту
+        const fullHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Звіт порівняння текстів</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/diff2html/bundles/css/diff2html.min.css">
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #f6f8fa; }
+        .d2h-code-line-ctn { white-space: pre-wrap !important; word-break: break-all !important; }
+        .d2h-file-side-diff { overflow-x: hidden !important; }
+    </style>
+</head>
+<body>
+    <h2 style="text-align:center">Результат порівняння</h2>
+    ${diffContent}
+</body>
+</html>`;
+
+        const blob = new Blob([fullHtml], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `diff_report_${new Date().getTime()}.html`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
     window.onload = performDiff;
 </script>
 
